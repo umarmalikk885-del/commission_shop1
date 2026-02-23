@@ -38,9 +38,10 @@ jobs:
       - name: Validate commit message contract
         env:
           BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           git fetch origin "${BASE_REF}" --depth=1
-          COMMITS=$(git log --format=%s "origin/${BASE_REF}..HEAD")
+          COMMITS=$(git log --format=%s "origin/${BASE_REF}..${HEAD_SHA}")
           if [ -z "${COMMITS}" ]; then
             echo "No commits to validate."
             exit 0
@@ -91,4 +92,3 @@ jobs:
             echo "PR template validation failed."
             exit 1
           fi
-

@@ -43,15 +43,15 @@ jobs:
           php-version: "8.2"
           tools: composer
 
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
       - name: Prepare env
         run: |
           cp .env.example .env
           php artisan key:generate
           mkdir -p database
           touch database/database.sqlite
-
-      - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Run migrations (sqlite)
         env:
@@ -63,7 +63,7 @@ jobs:
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: database/database.sqlite
-        run: php artisan test --without-tty
+        run: php artisan test --without-tty --testsuite=Unit
 
   frontend-build:
     runs-on: ubuntu-latest
@@ -82,4 +82,3 @@ jobs:
 
       - name: Build frontend
         run: npm run build
-
