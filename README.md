@@ -33,6 +33,7 @@ This repository includes a ready workflow for parallel development with one inte
 6. Review checklist: `docs/team/review-checklist.md`
 7. AI prompt standard: `docs/team/ai-prompt-template.md`
 8. Second developer guide: `docs/team/second-developer-guide.md`
+9. Second Codex guide: `docs/team/second-codex-guide.md`
 
 ## Learning Laravel
 
