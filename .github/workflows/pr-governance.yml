@@ -1,0 +1,94 @@
+name: PR Governance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+
+jobs:
+  branch-name-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch naming contract
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          echo "Branch: ${BRANCH_NAME}"
+          if [[ "${BRANCH_NAME}" =~ ^feature\/[A-Za-z0-9._-]+-[A-Za-z0-9._-]+$ ]]; then
+            exit 0
+          fi
+          if [[ "${BRANCH_NAME}" =~ ^fix\/[A-Za-z0-9._-]+-[A-Za-z0-9._-]+$ ]]; then
+            exit 0
+          fi
+          if [[ "${BRANCH_NAME}" =~ ^chore\/[A-Za-z0-9._-]+$ ]]; then
+            exit 0
+          fi
+          echo "Invalid branch name. Use feature/<ticket>-<short-name>, fix/<ticket>-<short-name>, or chore/<short-name>."
+          exit 1
+
+  commit-message-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit message contract
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch origin "${BASE_REF}" --depth=1
+          COMMITS=$(git log --format=%s "origin/${BASE_REF}..HEAD")
+          if [ -z "${COMMITS}" ]; then
+            echo "No commits to validate."
+            exit 0
+          fi
+
+          PATTERN='^(feat|fix|refactor|chore|docs|test)\([a-zA-Z0-9._/-]+\): .+'
+          FAILED=0
+
+          while IFS= read -r SUBJECT; do
+            [ -z "${SUBJECT}" ] && continue
+            if [[ ! "${SUBJECT}" =~ ${PATTERN} ]]; then
+              echo "Invalid commit message: ${SUBJECT}"
+              FAILED=1
+            fi
+          done <<< "${COMMITS}"
+
+          if [ "${FAILED}" -ne 0 ]; then
+            echo "Commit message validation failed."
+            exit 1
+          fi
+
+  pr-template-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure required PR sections are present
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          BODY="${PR_BODY}"
+          REQUIRED=(
+            "## Problem"
+            "## Scope"
+            "## Files Changed"
+            "## Test Evidence"
+            "## Risks"
+            "## Rollback"
+          )
+
+          MISSING=0
+          for SECTION in "${REQUIRED[@]}"; do
+            if ! grep -Fq "${SECTION}" <<< "${BODY}"; then
+              echo "Missing PR section: ${SECTION}"
+              MISSING=1
+            fi
+          done
+
+          if [ "${MISSING}" -ne 0 ]; then
+            echo "PR template validation failed."
+            exit 1
+          fi
+
