@@ -20,8 +20,16 @@ function Invoke-Checked {
         [string[]]$Arguments
     )
 
-    $output = & $FilePath @Arguments 2>&1
-    $exitCode = $LASTEXITCODE
+    $previousErrorAction = $ErrorActionPreference
+    try {
+        # Git and other native tools can write progress/status to stderr even on success.
+        # We validate by process exit code to avoid false failures in Windows PowerShell.
+        $ErrorActionPreference = "Continue"
+        $output = & $FilePath @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorAction
+    }
 
     if ($exitCode -ne 0) {
         $renderedArgs = $Arguments -join " "
