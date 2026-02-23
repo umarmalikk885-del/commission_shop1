@@ -100,3 +100,11 @@ Output:
 3. `docs/team/daily-operating-sop.md`
 4. `docs/team/review-checklist.md`
 5. `docs/team/merge-decision-gate.md`
+
+## One-Command Machine Setup
+
+Run this on the second machine:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\setup-second-codex.ps1 -RepoOwner umarmalikk885-del -RepoName commission_shop1 -TargetRoot "$HOME\Desktop" -GitUserName "Second Dev Name" -GitUserEmail "seconddev@example.com"
+```
