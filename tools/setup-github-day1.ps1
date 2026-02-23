@@ -165,7 +165,8 @@ $protectionPayload = @{
 $json = $protectionPayload | ConvertTo-Json -Depth 10 -Compress
 $tempFile = [System.IO.Path]::GetTempFileName()
 try {
-    Set-Content -Path $tempFile -Value $json -Encoding UTF8 -NoNewline
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($tempFile, $json, $utf8NoBom)
     Invoke-Checked -FilePath $gh -Arguments @(
         "api",
         "--method", "PUT",
