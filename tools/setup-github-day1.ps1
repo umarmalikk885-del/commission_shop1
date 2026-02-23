@@ -12,6 +12,26 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Invoke-Checked {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    $output = & $FilePath @Arguments 2>&1
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        $renderedArgs = $Arguments -join " "
+        $renderedOutput = ($output | Out-String).Trim()
+        throw "Command failed: $FilePath $renderedArgs`n$renderedOutput"
+    }
+
+    return $output
+}
+
 function Get-Executable {
     param(
         [Parameter(Mandatory = $true)]
@@ -37,38 +57,38 @@ $gh = Get-Executable -Name "gh" -FallbackPath "C:\Program Files\GitHub CLI\gh.ex
 $repoSlug = "$RepoOwner/$RepoName"
 
 Write-Host "Checking GitHub authentication..."
-& $gh auth status | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("auth", "status") | Out-Null
 
 Write-Host "Ensuring local git repository exists..."
 try {
-    & $git rev-parse --is-inside-work-tree | Out-Null
+    Invoke-Checked -FilePath $git -Arguments @("rev-parse", "--is-inside-work-tree") | Out-Null
 } catch {
-    & $git init -b main | Out-Null
+    Invoke-Checked -FilePath $git -Arguments @("init", "-b", "main") | Out-Null
 }
 
-$currentBranch = (& $git branch --show-current).Trim()
+$currentBranch = (Invoke-Checked -FilePath $git -Arguments @("branch", "--show-current") | Select-Object -First 1).ToString().Trim()
 if ([string]::IsNullOrWhiteSpace($currentBranch)) {
-    & $git checkout -b main | Out-Null
+    Invoke-Checked -FilePath $git -Arguments @("checkout", "-b", "main") | Out-Null
 } elseif ($currentBranch -ne "main") {
-    & $git checkout main | Out-Null
+    Invoke-Checked -FilePath $git -Arguments @("checkout", "main") | Out-Null
 }
 
 Write-Host "Checking repository on GitHub: $repoSlug"
 $repoExists = $true
 try {
-    & $gh repo view $repoSlug | Out-Null
+    Invoke-Checked -FilePath $gh -Arguments @("repo", "view", $repoSlug) | Out-Null
 } catch {
     $repoExists = $false
 }
 
 if (-not $repoExists) {
     Write-Host "Creating repository on GitHub..."
-    & $gh repo create $repoSlug --$Visibility --source . --remote origin | Out-Null
+    Invoke-Checked -FilePath $gh -Arguments @("repo", "create", $repoSlug, "--$Visibility", "--source", ".", "--remote", "origin") | Out-Null
 }
 
 $originUrl = ""
 try {
-    $originUrl = (& $git remote get-url origin).Trim()
+    $originUrl = (Invoke-Checked -FilePath $git -Arguments @("remote", "get-url", "origin") | Select-Object -First 1).ToString().Trim()
 } catch {
     $originUrl = ""
 }
@@ -76,33 +96,35 @@ try {
 if ([string]::IsNullOrWhiteSpace($originUrl)) {
     $remoteUrl = "https://github.com/$repoSlug.git"
     Write-Host "Adding origin remote: $remoteUrl"
-    & $git remote add origin $remoteUrl
+    Invoke-Checked -FilePath $git -Arguments @("remote", "add", "origin", $remoteUrl) | Out-Null
 }
 
 Write-Host "Pushing main branch..."
-& $git push -u origin main
+Invoke-Checked -FilePath $git -Arguments @("push", "-u", "origin", "main") | Out-Null
 
 Write-Host "Configuring repository merge options..."
-& $gh api `
-    --method PATCH `
-    -H "Accept: application/vnd.github+json" `
-    "/repos/$repoSlug" `
-    -f name="$RepoName" `
-    -f allow_squash_merge=true `
-    -f allow_merge_commit=false `
-    -f allow_rebase_merge=false `
-    -f allow_auto_merge=false `
-    -f delete_branch_on_merge=false | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @(
+    "api",
+    "--method", "PATCH",
+    "-H", "Accept: application/vnd.github+json",
+    "/repos/$repoSlug",
+    "-f", "name=$RepoName",
+    "-f", "allow_squash_merge=true",
+    "-f", "allow_merge_commit=false",
+    "-f", "allow_rebase_merge=false",
+    "-f", "allow_auto_merge=false",
+    "-f", "delete_branch_on_merge=false"
+) | Out-Null
 
 Write-Host "Creating/updating labels..."
-& $gh label create "priority:high" --repo $repoSlug --color "B60205" --description "High priority" --force | Out-Null
-& $gh label create "priority:medium" --repo $repoSlug --color "FBCA04" --description "Medium priority" --force | Out-Null
-& $gh label create "priority:low" --repo $repoSlug --color "0E8A16" --description "Low priority" --force | Out-Null
-& $gh label create "risk:high" --repo $repoSlug --color "D93F0B" --description "High risk change" --force | Out-Null
-& $gh label create "risk:low" --repo $repoSlug --color "1D76DB" --description "Low risk change" --force | Out-Null
-& $gh label create "needs-tests" --repo $repoSlug --color "5319E7" --description "Tests are missing or insufficient" --force | Out-Null
-& $gh label create "ready-for-review" --repo $repoSlug --color "0052CC" --description "Ready for reviewer assignment" --force | Out-Null
-& $gh label create "ready-to-merge" --repo $repoSlug --color "0E8A16" --description "All checks passed and approved" --force | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "priority:high", "--repo", $repoSlug, "--color", "B60205", "--description", "High priority", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "priority:medium", "--repo", $repoSlug, "--color", "FBCA04", "--description", "Medium priority", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "priority:low", "--repo", $repoSlug, "--color", "0E8A16", "--description", "Low priority", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "risk:high", "--repo", $repoSlug, "--color", "D93F0B", "--description", "High risk change", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "risk:low", "--repo", $repoSlug, "--color", "1D76DB", "--description", "Low risk change", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "needs-tests", "--repo", $repoSlug, "--color", "5319E7", "--description", "Tests are missing or insufficient", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "ready-for-review", "--repo", $repoSlug, "--color", "0052CC", "--description", "Ready for reviewer assignment", "--force") | Out-Null
+Invoke-Checked -FilePath $gh -Arguments @("label", "create", "ready-to-merge", "--repo", $repoSlug, "--color", "0E8A16", "--description", "All checks passed and approved", "--force") | Out-Null
 
 Write-Host "Applying branch protection on main..."
 $protectionPayload = @{
@@ -133,11 +155,21 @@ $protectionPayload = @{
 }
 
 $json = $protectionPayload | ConvertTo-Json -Depth 10 -Compress
-$json | & $gh api `
-    --method PUT `
-    -H "Accept: application/vnd.github+json" `
-    "/repos/$repoSlug/branches/main/protection" `
-    --input -
+$tempFile = [System.IO.Path]::GetTempFileName()
+try {
+    Set-Content -Path $tempFile -Value $json -Encoding UTF8 -NoNewline
+    Invoke-Checked -FilePath $gh -Arguments @(
+        "api",
+        "--method", "PUT",
+        "-H", "Accept: application/vnd.github+json",
+        "/repos/$repoSlug/branches/main/protection",
+        "--input", $tempFile
+    ) | Out-Null
+} finally {
+    if (Test-Path $tempFile) {
+        Remove-Item $tempFile -Force
+    }
+}
 
 Write-Host ""
 Write-Host "Day-1 setup complete for $repoSlug"
