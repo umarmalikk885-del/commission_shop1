@@ -32,6 +32,7 @@ This repository includes a ready workflow for parallel development with one inte
 5. Merge gate: `docs/team/merge-decision-gate.md`
 6. Review checklist: `docs/team/review-checklist.md`
 7. AI prompt standard: `docs/team/ai-prompt-template.md`
+8. Second developer guide: `docs/team/second-developer-guide.md`
 
 ## Learning Laravel
 
